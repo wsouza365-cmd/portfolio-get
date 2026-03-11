@@ -1,25 +1,48 @@
 import streamlit as st
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
+import os
 
 st.set_page_config(page_title="Portfólio GET Célio Lupparelli", layout="wide")
 
-st.title("📂 Colaboratório: Portfólio Digital 2026")
-st.subheader("GET Professor Célio Lupparelli")
+# Autenticação (Isso criará um link para você autorizar o acesso)
+gauth = GoogleAuth()
+# Tenta carregar credenciais salvas
+gauth.LoadCredentialsFile("mycreds.txt")
+if gauth.credentials is None:
+    # Se não houver credenciais, pede via código
+    st.sidebar.warning("⚠️ Google Drive não conectado.")
+    if st.sidebar.button("Conectar ao Google Drive"):
+        auth_url = gauth.GetAuthUrl()
+        st.sidebar.markdown(f"[Clique aqui para Autorizar]({auth_url})")
+        code = st.sidebar.text_input("Cole o código de verificação aqui:")
+        if code:
+            gauth.Auth(code)
+            gauth.SaveCredentialsFile("mycreds.txt")
+            st.sidebar.success("Conectado!")
+else:
+    gauth.Authorize()
+    st.sidebar.success("✅ Google Drive Conectado")
 
-menu = ["Capa", "Projetos", "Planejamentos", "Galeria por Período", "Mural Retrospectiva 2026"]
+drive = GoogleDrive(gauth)
+
+st.title("📂 Portfólio Digital: GET Célio Lupparelli")
+
+menu = ["Capa", "Projetos", "Planejamentos", "Galeria", "Mural 2026"]
 escolha = st.sidebar.selectbox("Navegação:", menu)
 
-if escolha == "Capa":
-    st.info("Bem-vindo, Professor Wagner! Selecione uma pasta ao lado para organizar seus documentos.")
-    st.image("https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=500")
-
-elif escolha == "Mural Retrospectiva 2026":
-    st.header("🎨 Mural de Destaques do Ano")
-    st.write("Fotos marcadas como destaque aparecerão aqui.")
-
-else:
-    st.header(f"Seção: {escolha}")
-    periodo = st.selectbox("Período:", ["1º Bim", "2º Bim", "3º Bim", "4º Bim"])
-    destaque = st.checkbox("⭐ Destaque para o Mural Final?")
-    arquivo = st.file_uploader("Subir arquivos", accept_multiple_files=True)
-    if st.button("Confirmar Envio"):
-        st.success("Arquivo recebido!")
+if escolha != "Capa" and escolha != "Mural 2026":
+    st.header(f"Upload para: {escolha}")
+    periodo = st.selectbox("Bimestre:", ["1º", "2º", "3º", "4º"])
+    arquivos = st.file_uploader("Selecione os arquivos", accept_multiple_files=True)
+    
+    if st.button("🚀 Salvar no Google Drive"):
+        if arquivos:
+            for arq in arquivos:
+                # Cria o arquivo no Drive
+                gfile = drive.CreateFile({'title': f"{escolha}_{periodo}_{arq.name}"})
+                gfile.SetContentFile(arq.name) # Envia o arquivo
+                gfile.Upload()
+                st.success(f"Arquivo '{arq.name}' salvo com sucesso!")
+        else:
+            st.error("Selecione um arquivo primeiro.")
